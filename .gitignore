@@ -1,0 +1,6 @@
+.agent-world.json
+*.key
+*.pem
+*.env
+secrets/
+credentials/
