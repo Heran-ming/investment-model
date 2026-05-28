@@ -1,0 +1,89 @@
+name: Investment Model Cloud Runs
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: watch or review
+        required: true
+        default: watch
+      slot:
+        description: auto, 1000, 1445, 2200, 0030, or 0345
+        required: true
+        default: auto
+      execute_trades:
+        description: Submit trades when model triggers them
+        type: boolean
+        required: true
+        default: true
+  schedule:
+    - cron: "0 2 * * 1-5"
+    - cron: "45 6 * * 1-5"
+    - cron: "0 14 * * 1-5"
+    - cron: "30 16 * * 1-5"
+    - cron: "45 19 * * 1-5"
+    - cron: "30 20 * * 1-5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: investment-model-cloud
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Pick run mode
+        id: pick
+        shell: bash
+        run: |
+          MODE="${{ github.event.inputs.mode || 'watch' }}"
+          SLOT="${{ github.event.inputs.slot || 'auto' }}"
+          EXECUTE="${{ github.event.inputs.execute_trades || 'true' }}"
+
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            case "${{ github.event.schedule }}" in
+              "0 2 * * 1-5") SLOT="1000"; MODE="watch" ;;
+              "45 6 * * 1-5") SLOT="1445"; MODE="watch" ;;
+              "0 14 * * 1-5") SLOT="2200"; MODE="watch" ;;
+              "30 16 * * 1-5") SLOT="0030"; MODE="watch" ;;
+              "45 19 * * 1-5") SLOT="0345"; MODE="watch" ;;
+              "30 20 * * 1-5") SLOT="0345"; MODE="review" ;;
+            esac
+          fi
+
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "slot=$SLOT" >> "$GITHUB_OUTPUT"
+          echo "execute=$EXECUTE" >> "$GITHUB_OUTPUT"
+
+      - name: Run investment model
+        env:
+          SIGNAL_ARENA_API_KEY: ${{ secrets.SIGNAL_ARENA_API_KEY }}
+        shell: bash
+        run: |
+          ARGS=(--mode "${{ steps.pick.outputs.mode }}" --slot "${{ steps.pick.outputs.slot }}")
+          if [ "${{ steps.pick.outputs.execute }}" = "true" ]; then
+            ARGS+=(--execute)
+          fi
+          python scripts/signal_arena_runner.py "${ARGS[@]}"
+
+      - name: Commit records
+        shell: bash
+        run: |
+          git config user.name "investment-model-bot"
+          git config user.email "investment-model-bot@users.noreply.github.com"
+          git add records 策场冲榜模型v2.md 银狐A股激进模型v2.md 复盘与模型调整规则.md 投资模型执行与盯盘规则.md README.md
+          if git diff --cached --quiet; then
+            echo "No record changes to commit."
+          else
+            git commit -m "Record investment model cloud run"
+            git push
+          fi

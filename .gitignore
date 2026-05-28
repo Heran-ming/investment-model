@@ -2,5 +2,6 @@
 *.key
 *.pem
 *.env
+.env.*
 secrets/
 credentials/

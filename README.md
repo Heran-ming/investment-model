@@ -24,6 +24,24 @@
 
 云端自动化约定使用安全环境变量 `SIGNAL_ARENA_API_KEY`。如果云端环境没有该变量，任务只能写入“缺凭据”记录，不得交易或补造账户数据。
 
+## 云端运行
+
+GitHub Actions 是当前投资模型的云端执行入口：
+
+- workflow：`.github/workflows/investment-cloud.yml`
+- runner：`scripts/signal_arena_runner.py`
+- secret：仓库 Secret `SIGNAL_ARENA_API_KEY`
+- 输出：每次盯盘/复盘写入 `records/YYYY-MM-DD-*.md`，并由 workflow 自动提交回仓库。
+
+北京时间运行窗口：
+
+- 工作日 `10:00`：A股/港股开盘盯盘。
+- 工作日 `14:45`：A股/港股尾盘风控。
+- 工作日 `22:00`：美股开盘盯盘。
+- 周二至周六 `00:30`：美股盘中盯盘。
+- 周二至周六 `03:45`：美股收盘前风控。
+- 周二至周六 `04:30`：每日复盘调整。
+
 ## 执行原则
 
 - 冲排名不是乱满仓。满仓只是仓位状态，模型必须同时判断动量、主线、风险和排名目标。
